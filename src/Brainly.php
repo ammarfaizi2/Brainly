@@ -2,7 +2,6 @@
 
 namespace Brainly;
 
-
 /**
  *
  * Ammar Faizi https://www.facebook.com/ammarfaizi2 
@@ -25,6 +24,16 @@ final class Brainly
 	private $cacheMap = [];
 
 	/**
+	 * @var string
+	 */
+	private $cacheMapFile;
+
+	/**
+	 * @var string
+	 */
+	private $cacheFile;
+
+	/**
 	 * @var int
 	 */
 	private $limit;
@@ -36,6 +45,7 @@ final class Brainly
 	{
 		$this->query = strtolower($query);
 		$this->hash  = sha1($this->query);
+		$this->limit = 100;
 		$this->__init__();
 	}
 
@@ -55,7 +65,8 @@ final class Brainly
 		} else {
 			$this->cacheMap = [];
 		}
-		$this->cachefile = $lpath."/cache/".$this->hash;
+		$this->cacheFile = $lpath."/cache/".$this->hash;
+		$this->cacheMapFile = $lpath."/cache.map";
 	}
 
 	/**
@@ -68,19 +79,29 @@ final class Brainly
 		$this->limit = (int) $int;
 	}
 
+	/**
+	 * Check the current query is cached or not.
+	 */
 	private function isCached()
 	{
-
 	}
 
+	/**
+	 * Check the current cache is perfect or not.
+	 *
+	 * @return 
+	 */
 	private function isPerfectCache()
 	{
-
 	}
 
+	/**
+	 * Get cached data.
+	 *
+	 * @return array
+	 */
 	private function getCache()
 	{
-
 	}
 
 	/**
@@ -91,7 +112,12 @@ final class Brainly
 		if ($this->isCached() && $this->isPerfectCache()) {
 			return $this->getCache();
 		} else {
-			return $this->search($this->query, $this->limit);
+			return $this->fixer(
+				$this->search(
+					$this->query, 
+					$this->limit
+				)
+			);
 		}
 	}
 
@@ -104,8 +130,11 @@ final class Brainly
 	 */
 	private static function search($query, $limit = 10)
 	{
-		$ch = curl_init("https://brainly.co.id/api/28/api_tasks/suggester?limit=".((int) $limit)."&query=".urlencode($query));
-		curl_setopt_array($ch, 
+		/*$ch = curl_init(
+			"https://brainly.co.id/api/28/api_tasks/suggester?limit=".((int) $limit)."&query=".urlencode($query)
+		);
+		curl_setopt_array(
+			$ch, 
 			[
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_SSL_VERIFYPEER => false,
@@ -115,9 +144,70 @@ final class Brainly
 			]
 		);
 		$out = curl_exec($ch);
-		$no  = curl_errno($ch) and $out = "Error ({$no}) : ".$out;
-		file_put_contents("a.tmp", json_encode(json_decode($out), 128));
+		$no  = curl_errno($ch) and $out = "Error ({$no}) : ".$out;*/
+		// file_put_contents("a.tmp", json_encode(json_decode($out), 128));
+		$out = file_get_contents("a.tmp");
 		return $out;
+	}
+
+	/**
+	 * Fix raw data.
+	 *
+	 * @param string $data
+	 * @return array
+	 */
+	private function fixer($data)
+	{
+		if ($this->writeCache($data)) {
+			$data = json_decode($data, true);
+			if ($data['success'] === true) {
+				if (isset($data['data']['tasks']['items'])) {
+					$r = [];
+					foreach ($data['data']['tasks']['items'] as $k => $v) {
+						$responses = [];
+						foreach ($v['responses'] as $j => $q) {
+							$responses[] = [
+								"content" => $q['content']
+							];
+						}
+						$r[] = [
+							"content" 	=> $v['task']['content'],
+							"responses"	=> $responses
+						];
+					}
+				}
+			}
+			return $r;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Write cache.
+	 *
+	 * @param string $data
+	 * @return bool
+	 */
+	private function writeCache($data)
+	{
+		$this->cacheMap[$this->hash] = time();
+		$handle = fopen($this->cacheMapFile, "w");
+		flock($handle, LOCK_EX);
+		$write1 = fwrite($handle, 
+			json_encode(
+				$this->cacheMap, 
+				JSON_UNESCAPED_SLASHES
+			)
+		);
+		fclose($handle);
+		$handle = fopen($this->cacheFile, "w");
+		flock($handle, LOCK_EX);
+		$write2 = fwrite($handle, $data);
+		fclose($handle);
+		return (
+			(bool) $write1 && (bool) $write2
+		);
 	}
 
 	/**
