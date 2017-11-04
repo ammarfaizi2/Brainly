@@ -126,7 +126,8 @@ final class Brainly
 	private function getCache()
 	{
 		return $this->fixer(
-			$this->cacheData
+			$this->cacheData,
+			true
 		);
 	}
 
@@ -135,11 +136,9 @@ final class Brainly
 	 */
 	private function _exec()
 	{
-		var_dump($this->isCached());die;
 		if ($this->isCached() && $this->isPerfectCache()) {
 			return $this->getCache();
 		} else {
-			die;
 			return $this->fixer(
 				$this->search(
 					$this->query, 
@@ -189,10 +188,12 @@ final class Brainly
 	 * @param string $data
 	 * @return array
 	 */
-	private function fixer($data)
+	private function fixer($data, $noWrite = false)
 	{
-		if ($this->writeCache($data)) {
-			$data = json_decode($data, true);
+		if (
+			$noWrite or $this->writeCache($data)
+		) {
+			$data = $noWrite ? $data : json_decode($data, true);
 			if ($data['success'] === true) {
 				if (isset($data['data']['tasks']['items'])) {
 					$r = [];
@@ -208,12 +209,11 @@ final class Brainly
 							"responses"	=> $responses
 						];
 					}
+					return $r;
 				}
 			}
-			return $r;
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	/**
