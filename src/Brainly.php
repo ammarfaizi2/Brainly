@@ -34,6 +34,11 @@ final class Brainly
 	private $cacheFile;
 
 	/**
+	 * @var array|null
+	 */
+	private $cacheData;
+
+	/**
 	 * @var int
 	 */
 	private $limit;
@@ -58,7 +63,12 @@ final class Brainly
 		is_dir($lpath) or mkdir($lpath);
 		is_dir($lpath."/cache") or mkdir($lpath."/cache");
 		if (file_exists($lpath."/cache.map")) {
-			$this->cacheMap = json_decode(file_get_contents($lpath."/cache"), true);
+			$this->cacheMap = json_decode(
+				file_get_contents(
+					$lpath."/cache.map"
+				), 
+				true
+			);
 			if (! is_array($this->cacheMap)) {
 				$this->cacheMap = [];
 			}
@@ -81,18 +91,31 @@ final class Brainly
 
 	/**
 	 * Check the current query is cached or not.
+	 *
+	 * @return bool
 	 */
 	private function isCached()
 	{
+		return isset($this->cacheMap[$this->hash]);
 	}
 
 	/**
 	 * Check the current cache is perfect or not.
 	 *
-	 * @return 
+	 * @return bool 
 	 */
 	private function isPerfectCache()
 	{
+		if ($this->cacheMap[$this->hash] + 0x93a80 > time()) {
+			$this->cacheData = json_decode(
+				file_get_contents(
+					$this->cacheFile
+				), 
+				true
+			);
+			return is_array($this->cacheData);
+		}
+		return false;
 	}
 
 	/**
@@ -102,6 +125,9 @@ final class Brainly
 	 */
 	private function getCache()
 	{
+		return $this->fixer(
+			$this->cacheData
+		);
 	}
 
 	/**
@@ -109,9 +135,11 @@ final class Brainly
 	 */
 	private function _exec()
 	{
+		var_dump($this->isCached());die;
 		if ($this->isCached() && $this->isPerfectCache()) {
 			return $this->getCache();
 		} else {
+			die;
 			return $this->fixer(
 				$this->search(
 					$this->query, 
@@ -130,7 +158,7 @@ final class Brainly
 	 */
 	private static function search($query, $limit = 10)
 	{
-		/*$ch = curl_init(
+		$ch = curl_init(
 			"https://brainly.co.id/api/28/api_tasks/suggester?limit=".((int) $limit)."&query=".urlencode($query)
 		);
 		curl_setopt_array(
@@ -144,9 +172,14 @@ final class Brainly
 			]
 		);
 		$out = curl_exec($ch);
-		$no  = curl_errno($ch) and $out = "Error ({$no}) : ".$out;*/
+		if (
+			$no  = curl_errno($ch) and 
+			$out = "Error ({$no}) : ".$out
+		) {
+			throw new \Exception($out, 1);
+		}
 		// file_put_contents("a.tmp", json_encode(json_decode($out), 128));
-		$out = file_get_contents("a.tmp");
+		// $out = file_get_contents("a.tmp");
 		return $out;
 	}
 
