@@ -11,7 +11,6 @@ namespace Brainly;
  * @license MIT
  * @version 0.0.1
  */
-
 final class Brainly
 {
 
@@ -92,7 +91,7 @@ final class Brainly
 		if ($this->isCached() && $this->isPerfectCache()) {
 			return $this->getCache();
 		} else {
-			$this->search($this->query, $this->limit);
+			return $this->search($this->query, $this->limit);
 		}
 	}
 
@@ -117,6 +116,7 @@ final class Brainly
 		);
 		$out = curl_exec($ch);
 		$no  = curl_errno($ch) and $out = "Error ({$no}) : ".$out;
+		file_put_contents("a.tmp", json_encode(json_decode($out), 128));
 		return $out;
 	}
 
