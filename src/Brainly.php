@@ -177,8 +177,6 @@ final class Brainly
 		) {
 			throw new \Exception($out, 1);
 		}
-		// file_put_contents("a.tmp", json_encode(json_decode($out), 128));
-		// $out = file_get_contents("a.tmp");
 		return $out;
 	}
 
