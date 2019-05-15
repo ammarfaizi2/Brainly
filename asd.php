@@ -6,11 +6,11 @@ use Brainly\Brainly;
 
 print "Masukkan pertanyaan: ";
 $query = trim(fgets(STDIN));
-print "Masukkan limit query (jumlah maksimal yang ditampilkan, default 10): ";
+print "Masukkan limit query (jumlah maksimal yang ditampilkan, default 1): ";
 $limit = trim(fgets(STDIN));
 
-if ($limit === "") {
-	$limit = 10;
+if ($limit === "" || (!is_numeric($limit))) {
+	$limit = 1;
 } else {
 	$limit = (int)$limit;
 }
