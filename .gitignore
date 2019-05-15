@@ -3,3 +3,4 @@
 *.tmp
 /test.php
 /brainly/
+/.phpintel/
