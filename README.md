@@ -1,5 +1,5 @@
 # Brainly Scraper
-Mendapatkan jawaban dari pertanyaanmu.
+Scrape brainly.co.id
 
 ## Installasi via composer
 ```composer require ammarfaizi2/brainly```
