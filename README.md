@@ -1,5 +1,5 @@
 # Brainly Scraper
-Scrape dbrainly.co.id
+Scrape brainly.co.id
 
 ## Installasi via composer
 ```composer require ammarfaizi2/brainly```
