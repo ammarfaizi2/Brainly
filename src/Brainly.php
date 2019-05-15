@@ -2,31 +2,29 @@
 
 namespace Brainly;
 
+use Exception;
+
 /**
- *
- * Ammar Faizi https://www.facebook.com/ammarfaizi2 
- *
- * @author Ammar Faizi <ammarfaizi2@gmail.com>
+ * @author Ammar Faizi <ammarfaizi2@gmail.com> https://www.facebook.com/ammarfaizi2
  * @license MIT
- * @version 0.0.1
+ * @version 0.0.2
  */
 final class Brainly
 {
-
 	/**
 	 * @var string
 	 */
 	private $query;
 
 	/**
-	 * @var array
+	 * @var string
 	 */
-	private $cacheMap = [];
+	private $hash;
 
 	/**
 	 * @var string
 	 */
-	private $cacheMapFile;
+	private $cacheDir;
 
 	/**
 	 * @var string
@@ -34,220 +32,288 @@ final class Brainly
 	private $cacheFile;
 
 	/**
-	 * @var array|null
+	 * @var array
 	 */
-	private $cacheData;
+	private $result = [];
 
 	/**
-	 * @var int
+	 * @var bool
 	 */
-	private $limit;
+	private $forceNoCache = false;
+
+	/**
+	 * @var string
+	 */
+	private $cookieFile;
+
+	/**
+	 * @var string
+	 */
+	private $out = null;
 
 	/**
 	 * @param string $query
+	 * @throws \Exception
+	 *
+	 * Constructor
 	 */
 	public function __construct($query)
 	{
-		$this->query = strtolower($query);
-		$this->hash  = sha1($this->query);
-		$this->limit = 100;
-		$this->__init__();
-	}
+		$this->query = trim(strtolower($query));
+		$this->hash = sha1($this->query);
 
-	/**
-	 * Init data.
-	 */
-	private function __init__()
-	{
-		$lpath = defined("data") ? data."/branily" : getcwd()."/brainly";
-		is_dir($lpath) or mkdir($lpath);
-		is_dir($lpath."/cache") or mkdir($lpath."/cache");
-		if (file_exists($lpath."/cache.map")) {
-			$this->cacheMap = json_decode(
-				file_get_contents(
-					$lpath."/cache.map"
-				), 
-				true
-			);
-			if (! is_array($this->cacheMap)) {
-				$this->cacheMap = [];
-			}
+		if (defined("data")) {
+			is_dir(data."/brainly") or mkdir(data."/brainly");
+			$this->cacheDir = data."/brainly/cache";
+			$this->cookieFile = data."/brainly/cookie.txt";
 		} else {
-			$this->cacheMap = [];
+			$cwd = getcwd();
+			is_dir($cwd."/brainly") or mkdir($cwd."/brainly");
+			$this->cacheDir = $cwd."/brainly/cache";
+			$this->cookieFile = $cwd."/brainly/cookie.txt";
+			unset($cwd);
 		}
-		$this->cacheFile = $lpath."/cache/".$this->hash;
-		$this->cacheMapFile = $lpath."/cache.map";
+
+		$this->cacheFile = $this->cacheDir."/".$this->hash;
+
+		is_dir($this->cacheDir) or mkdir($this->cacheDir);
+
+		if (!is_dir($this->cacheDir)) {
+			throw new Exception("Couldn't create cache directory: {$this->cacheDir}");
+		}
+
+		if (!is_writeable($this->cacheDir)) {
+			throw new Exception("Cache dir is not writeable: {$this->cacheDir}");
+		}
+
+		if (file_exists($this->cacheFile)) {
+
+			if (!is_readable($this->cacheFile)) {
+				throw new Exception("Cache file does exist but it is not readable");
+			}
+
+			if (!is_writeable($this->cacheFile)) {
+				throw new Exception("Cache file does exist but it is not writeable");
+			}
+
+		}
 	}
 
 	/**
-	 * Set limit query.
-	 *
-	 * @param int $int
-	 */
-	public function limit($int)
-	{
-		$this->limit = (int) $int;
-	}
-
-	/**
-	 * Check the current query is cached or not.
-	 *
 	 * @return bool
 	 */
-	private function isCached()
+	private function lookForCache()
 	{
-		return isset($this->cacheMap[$this->hash]);
-	}
-
-	/**
-	 * Check the current cache is perfect or not.
-	 *
-	 * @return bool 
-	 */
-	private function isPerfectCache()
-	{
-		if ($this->cacheMap[$this->hash] + 0x93a80 > time()) {
-			$this->cacheData = json_decode(
-				file_get_contents(
-					$this->cacheFile
-				), 
-				true
-			);
-			return is_array($this->cacheData);
+		if ($this->forceNoCache) {
+			return false;
 		}
+
+		if (file_exists($this->cacheFile)) {
+			$this->result = self::parseOut(@gzinflate(file_get_contents($this->cacheFile))."");
+
+			if (!is_array($this->result)) {
+				unlink($this->cacheFile);
+				$this->result = [];
+				return false;
+			}
+
+			return true;
+		}
+
 		return false;
 	}
 
 	/**
-	 * Get cached data.
-	 *
-	 * @return array
+	 * @throws \Exception
+	 * @return void
 	 */
-	private function getCache()
+	private function doQuery()
 	{
-		return $this->fixer(
-			$this->cacheData,
-			true
-		);
-	}
+		// Visit the main page first, so that it isn't like a bot.
+		// $ch = curl_init("https://brainly.co.id");
+		// curl_setopt_array($ch, 
+		// 	[
+		// 		CURLOPT_RETURNTRANSFER => true,
+		// 		CURLOPT_SSL_VERIFYPEER => false,
+		// 		CURLOPT_SSL_VERIFYHOST => false,
+		// 		CURLOPT_HTTPHEADER => [
+		// 			"Accept-Encoding: gzip, deflate, br"
+		// 		],
+		// 		CURLOPT_USERAGENT => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0",
+		// 		CURLOPT_COOKIEFILE => $this->cookieFile,
+		// 		CURLOPT_COOKIEJAR => $this->cookieFile
+		// 	]
+		// );
+		// curl_exec($ch);
+		// $err = curl_error($ch);
+		// $ern = curl_errno($ch);
+		// curl_close($ch);
 
-	/**
-	 * Search data.
-	 */
-	private function _exec()
-	{
-		if ($this->isCached() && $this->isPerfectCache()) {
-			return $this->getCache();
-		} else {
-			return $this->fixer(
-				$this->search(
-					$this->query, 
-					$this->limit
-				)
-			);
-		}
-	}
+		// if ($err) {
+		// 	goto curl_error;
+		// }
 
-	/**
-	 * Online search
-	 *
-	 * @param string $query
-	 * @param int    $limit
-	 * @return string
-	 */
-	private static function search($query, $limit = 10)
-	{
-		$ch = curl_init(
-			"https://brainly.co.id/api/28/api_tasks/suggester?limit=".((int) $limit)."&query=".urlencode($query)
-		);
-		curl_setopt_array(
-			$ch, 
+		// Do query.
+		$ch = curl_init("https://brainly.co.id/graphql/id?op=SearchQuery");
+		curl_setopt_array($ch, 
 			[
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_SSL_VERIFYPEER => false,
 				CURLOPT_SSL_VERIFYHOST => false,
-				CURLOPT_CONNECTTIMEOUT => 15,
-				CURLOPT_TIMEOUT => 15
+				CURLOPT_POST => true,
+				CURLOPT_POSTFIELDS => $this->buildQuery(),
+				CURLOPT_HTTPHEADER => [
+					"Accept-Encoding: gzip, deflate, br",
+					"Content-Type: application/json",
+					"Origin: https://brainly.co.id"
+				],
+				CURLOPT_USERAGENT => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0",
+				CURLOPT_REFERER => "https://brainly.co.id/app/ask?entry=top&q=".urlencode($this->query),
+				CURLOPT_COOKIEFILE => $this->cookieFile,
+				CURLOPT_COOKIEJAR => $this->cookieFile
 			]
 		);
-		$out = curl_exec($ch);
-		if (
-			$no  = curl_errno($ch) and 
-			$out = "Error ({$no}) : ".$out
-		) {
-			throw new \Exception($out, 1);
+		$this->out = gzdecode(curl_exec($ch));
+		$err = curl_error($ch);
+		$ern = curl_errno($ch);
+		curl_close($ch);
+
+		if ($err) {
+			goto curl_error;
 		}
-		return $out;
+
+		$this->result = self::parseOut($this->out);
+		return;
+
+curl_error:
+		if ($err) {
+			throw new Exception("A curl error occured: ({$ern}): {$err}");
+		}
 	}
 
 	/**
-	 * Fix raw data.
-	 *
-	 * @param string $data
 	 * @return array
 	 */
-	private function fixer($data, $noWrite = false)
+	private static function parseOut($out)
 	{
-		if (
-			$noWrite or $this->writeCache($data)
-		) {
-			$data = $noWrite ? $data : json_decode($data, true);
-			if ($data['success'] === true) {
-				if (isset($data['data']['tasks']['items'])) {
-					$r = [];
-					foreach ($data['data']['tasks']['items'] as $k => $v) {
-						$responses = [];
-						foreach ($v['responses'] as $j => $q) {
-							$responses[] = [
-								"content" => $q['content']
-							];
-						}
-						$r[] = [
-							"content" 	=> $v['task']['content'],
-							"responses"	=> $responses
-						];
+		$result = [];
+		$out = json_decode($out, true);
+
+		if (!is_array($out)) {
+			return [];
+		}
+
+		if (isset($out["data"]["questionSearch"]["edges"]) && is_array($out["data"]["questionSearch"]["edges"])) {
+			foreach ($out["data"]["questionSearch"]["edges"] as $r) {
+
+				$answers = [];
+
+				if (isset($r["node"]["answers"]["nodes"]) && is_array($r["node"]["answers"]["nodes"])) {
+					foreach ($r["node"]["answers"]["nodes"] as $rr) {
+						$answers[] = $rr["content"];
 					}
-					return $r;
 				}
+
+				$result[] = [
+					"content" => $r["node"]["content"],
+					"answers" => $answers
+				];
 			}
 		}
-		return false;
+
+		return $result;
 	}
 
 	/**
-	 * Write cache.
-	 *
-	 * @param string $data
-	 * @return bool
-	 */
-	private function writeCache($data)
-	{
-		$this->cacheMap[$this->hash] = time();
-		$handle = fopen($this->cacheMapFile, "w");
-		flock($handle, LOCK_EX);
-		$write1 = fwrite($handle, 
-			json_encode(
-				$this->cacheMap, 
-				JSON_UNESCAPED_SLASHES
-			)
-		);
-		fclose($handle);
-		$handle = fopen($this->cacheFile, "w");
-		flock($handle, LOCK_EX);
-		$write2 = fwrite($handle, $data);
-		fclose($handle);
-		return (
-			(bool) $write1 && (bool) $write2
-		);
-	}
-
-	/**
-	 * Execute and get result.
-	 * 
 	 * @return string
+	 */
+	private function buildQuery()
+	{
+    	return json_encode(
+    		[
+	    		"operationName" => "SearchQuery",
+	    		"variables" => [
+	    			"query" => $this->query,
+	    			"after" => null,
+	    			"first" => 100
+	    		],
+	    		"query" => self::GRAPHQL_PAYLOAD
+	    	],
+	    	JSON_UNESCAPED_SLASHES
+	    );
+	}
+
+	/**
+	 * @return void
+	 */
+	private function writeCache()
+	{
+		if (is_string($this->out)) {
+			file_put_contents($this->cacheFile, gzdeflate($this->out, 9));
+		}
+	}
+
+	/**
+	 * @return array
 	 */
 	public function exec()
 	{
-		return $this->_exec();
+		if ($this->lookForCache()) {
+			return $this->result;
+		}
+
+		$this->doQuery();
+		$this->writeCache();
+		return $this->result;
 	}
+
+
+	private const GRAPHQL_PAYLOAD = <<<'GRAPHQL_PAYLOAD'
+query SearchQuery($query: String!, $first: Int!, $after: ID) {
+  questionSearch(query: $query, first: $first, after: $after) {
+    count
+    edges {
+      node {
+        id
+        databaseId
+        author {
+          id
+          databaseId
+          isDeleted
+          nick
+          avatar {
+            thumbnailUrl
+            __typename
+          }
+          rank {
+            name
+            __typename
+          }
+          __typename
+        }
+        content
+        answers {
+          nodes {
+            thanksCount
+            ratesCount
+            rating
+            content
+            __typename
+          }
+          hasVerified
+          __typename
+        }
+        __typename
+      }
+      highlight {
+        contentFragments
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}
+GRAPHQL_PAYLOAD;
+
 }
