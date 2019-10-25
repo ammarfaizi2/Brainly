@@ -1,5 +1,5 @@
 <?php
-
+set_time_limit(0);
 require "src/Brainly.php";
 
 use Brainly\Brainly;
