@@ -87,7 +87,7 @@ final class Brainly
    */
   public function __construct($query, $first = 100, $after = null)
   {
-    $this->query      = trim($query);
+    $this->query      = strtolower(trim($query));
     $this->hash       = sha1($query);
     $this->dataDir    = defined("data") ? data : getcwd()."/brainly";
     $this->cacheDir   = "{$this->dataDir}/cache";
