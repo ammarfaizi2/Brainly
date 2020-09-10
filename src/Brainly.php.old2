@@ -268,52 +268,6 @@ curl_error:
 	}
 
 
-	private const GRAPHQL_PAYLOAD = <<<'GRAPHQL_PAYLOAD'
-query SearchQuery($query: String!, $first: Int!, $after: ID) {
-  questionSearch(query: $query, first: $first, after: $after) {
-    count
-    edges {
-      node {
-        id
-        databaseId
-        author {
-          id
-          databaseId
-          isDeleted
-          nick
-          avatar {
-            thumbnailUrl
-            __typename
-          }
-          rank {
-            name
-            __typename
-          }
-          __typename
-        }
-        content
-        answers {
-          nodes {
-            thanksCount
-            ratesCount
-            rating
-            content
-            __typename
-          }
-          hasVerified
-          __typename
-        }
-        __typename
-      }
-      highlight {
-        contentFragments
-        __typename
-      }
-      __typename
-    }
-    __typename
-  }
-}
-GRAPHQL_PAYLOAD;
+
 
 }
