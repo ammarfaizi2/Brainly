@@ -1,10 +1,10 @@
 # Brainly Scraper
 Scrape brainly.co.id
 
-## Installasi via composer
+## Installasi via composer (tidak wajib)
 ```composer require ammarfaizi2/brainly```
 
-## Contoh penggunaan
+## Contoh penggunaan (contoh tanpa composer)
 ```php
 <?php
 
@@ -17,11 +17,14 @@ $st = new Brainly($query);
 $result = $st->exec();
 
 if (count($result) === 0) {
-    print "Not found!\n";
+  print "Not found!\n";
 } else {
-    print json_encode($result, JSON_PRETTY_PRINT);
+  print json_encode($result, JSON_PRETTY_PRINT);
 }
 ```
+
+## License
+This package is licensed under the MIT license.
 
 ## Hasil
 ```json
