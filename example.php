@@ -9,7 +9,7 @@ $st = new Brainly($query);
 $result = $st->exec();
 
 if (count($result) === 0) {
-    print "Not found!\n";
+  print "Not found!\n";
 } else {
-    print json_encode($result, JSON_PRETTY_PRINT);
+  print json_encode($result, JSON_PRETTY_PRINT);
 }
